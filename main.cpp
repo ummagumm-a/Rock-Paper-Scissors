@@ -15,7 +15,7 @@ using namespace std::chrono_literals;
 constexpr int TIMEOUT = 400; // maximum number of milliseconds that a player is allowed to take
 constexpr int gridSideSize = 15;
 
-enum class Symbols
+enum class Symbols // this enum class describes all possible symbols on the board and an empty cell
 {
     s, S, p, P, r, R, M, f, F, empty
 };
@@ -23,22 +23,20 @@ enum class Symbols
 class Position
 {
 public:
-    Position()
-            :
-            pos(-1, -1)
-    {}
-
+    // ctor for creation of new position
     Position(int row, int column)
         :
         pos(row, column)
     {}
 
+    // compare on equal operator
     bool operator==(const Position& rhs) const
     {
         return get<0>(pos) == get<0>(rhs.pos)
                && get<1>(pos) == get<1>(rhs.pos);
     }
 
+    // copy assignment operator
     Position& operator=(const Position& rhs)
     {
         if (this == &rhs) return *this;
@@ -49,11 +47,13 @@ public:
         return *this;
     }
 
+    // returns the row of this position
     [[nodiscard]] int getRow() const
     {
         return get<0>(pos);
     }
 
+    // returns the column of this position
     [[nodiscard]] int getColumn() const
     {
         return get<1>(pos);
@@ -63,40 +63,15 @@ private:
     std::tuple<int, int> pos;
 };
 
-class World {
+class World
+{
 public:
-    vector<vector<shared_ptr<Symbols>>> board;
-    inline static vector<pair<int, int>> mountainCoordinates = {
-            {10, 2},
-            {11, 2},
-            {12, 2},
-            {10, 4},
-            {11, 4},
-            {12, 4},
-            {12, 5},
-            {10, 6},
-            {11, 6},
-            {12, 6},
-            {7,  6},
-            {7,  7},
-            {7,  8},
-            {2,  10},
-            {2,  12},
-            {4,  9},
-            {4,  13},
-            {5,  10},
-            {5,  11},
-            {5,  12}
-    };
-
-    vector<pair<int, int>> set0;
-    vector<pair<int, int>> set1;
-
-public:
+    // ctor for creating a world
     World()
         :
-        board(gridSideSize, vector<shared_ptr<Symbols>>(gridSideSize, make_shared<Symbols>(Symbols::empty)))
+        board(gridSideSize, vector<shared_ptr<Symbols>>(gridSideSize, make_shared<Symbols>(Symbols::empty))) // initialize 15x15 grid with empty cells
     {
+        // define the coordinates of the 0 player's units
         for (int i = 0; i < 6; ++i)
         {
             for (int j = 1; j < 6; ++j)
@@ -105,6 +80,7 @@ public:
             }
         }
 
+        // define the coordinates of the 1 player's units
         for (int i = 9; i < 15; ++i)
         {
             for (int j = 9; j < 14; ++j)
@@ -152,6 +128,7 @@ public:
 
     void show() const
     {
+        // choose an appropriate char for a unit
         auto showSymbol = [](const shared_ptr<Symbols>& symbolPtr)
         {
             switch (*symbolPtr)
@@ -169,6 +146,7 @@ public:
             }
         };
 
+        // print all cells on the board
         for (int i = 0; i < gridSideSize; ++i)
         {
             for (int j = 0; j < gridSideSize; ++j)
@@ -179,19 +157,62 @@ public:
             cout << endl;
         }
     }
+public:
+    // a grid representing a board
+    vector<vector<shared_ptr<Symbols>>> board;
+    // coordinates of mountains
+    inline static vector<pair<int, int>> mountainCoordinates = {
+            {10, 2},
+            {11, 2},
+            {12, 2},
+            {10, 4},
+            {11, 4},
+            {12, 4},
+            {12, 5},
+            {10, 6},
+            {11, 6},
+            {12, 6},
+            {7,  6},
+            {7,  7},
+            {7,  8},
+            {2,  10},
+            {2,  12},
+            {4,  9},
+            {4,  13},
+            {5,  10},
+            {5,  11},
+            {5,  12}
+    };
+
+    // units of player 0
+    vector<pair<int, int>> set0;
+    // units of player 1
+    vector<pair<int, int>> set1;
 };
 
-class Action {
+class Action
+{
 public:
+    // ctor for creating an action
+    Action(Position& positionFrom, Position& positionTo)
+    {
+        from = make_shared<Position>(positionFrom);
+        to = make_shared<Position>(positionTo);
+    }
+
+    Action() = default;
+
     shared_ptr<Position> from; // current row, column of the unit to be moved
     shared_ptr<Position> to; // position to where the unit must be moved
 };
 
+// return a random unit in a set
 auto chooseSymbolRandomly(const vector<pair<int, int>>& set)
 {
     return set[rand() % set.size()];
 }
 
+// chooses an action for the player 0
 Action actionPlayerZero(const World& world)
 {
     bool successfulMove = false;
@@ -210,25 +231,20 @@ Action actionPlayerZero(const World& world)
                     && *world.board[row + 1][column] != Symbols::s
                     && *world.board[row + 1][column] != Symbols::f)
         {
-            action.from = make_shared<Position>(Position(row, column));
+            action.from = make_shared<Position>(Position(row, column)); // old coordinates
             action.to = make_shared<Position>(Position(row + 1, column)); // increase row
-            cout << "coords: " << row << " " << column;
-            cout << " to " << row + 1 << " " << column << endl;
-
 
             successfulMove = true;
         }
-        else if (column + 1 != gridSideSize
+        else if (column + 1 != gridSideSize // otherwise, try to change the column if possible
                     && *world.board[row][column + 1] != Symbols::M
                     && *world.board[row][column + 1] != Symbols::r
                     && *world.board[row][column + 1] != Symbols::p
                     && *world.board[row][column + 1] != Symbols::s
                     && *world.board[row][column + 1] != Symbols::f)
         {
-            action.from = make_shared<Position>(Position(row, column));
-            action.to = make_shared<Position>(Position(row, column + 1));
-            cout << "coords: " << row << " " << column;
-            cout << " to " << row << " " << column + 1 << endl;
+            action.from = make_shared<Position>(Position(row, column)); // old coordinates
+            action.to = make_shared<Position>(Position(row, column + 1)); // increase column
 
             successfulMove = true;
         }
@@ -236,13 +252,13 @@ Action actionPlayerZero(const World& world)
         if (count++ == 100) {
             cout << "can't move :(" << endl;
             exit(0);
-        }
+        } // if after 100 iterations haven't found a unit that can move - end the game
     }
 
     return action;
-
 }
 
+// chooses an action for the player 1
 Action actionPlayerOne(const World& world) {
     bool successfulMove = false;
     Action action;
@@ -262,6 +278,7 @@ Action actionPlayerOne(const World& world) {
 
         // specify which move it takes
         auto[destRow, destColumn] = randMoves[randChoice];
+        // check whether the move is possible
         if (destRow >= 0 && destRow < gridSideSize && destColumn >= 0 && destColumn < gridSideSize
                 && *world.board[destRow][destColumn] != Symbols::M
                 && *world.board[destRow][destColumn] != Symbols::S
@@ -269,19 +286,17 @@ Action actionPlayerOne(const World& world) {
                 && *world.board[destRow][destColumn] != Symbols::P
                 && *world.board[destRow][destColumn] != Symbols::F)
         {
-            action.from = make_shared<Position>(Position(row, column));
-            action.to = make_shared<Position>(Position(destRow, destColumn));
-            cout << "coords: " << row << " " << column;
-            cout << " to " << destRow << " " << destColumn << endl;
+            action.from = make_shared<Position>(Position(row, column)); // old coordinates
+            action.to = make_shared<Position>(Position(destRow, destColumn)); // new coordinates
+
             successfulMove = true;
         }
 
         if (count++ == 100) {
             cout << "can't move :(" << endl;
             exit(0);
-        }
+        } // if after 100 iterations haven't found a unit that can move - end the game
     }
-
 
     return action;
 }
@@ -300,60 +315,61 @@ std::tuple<Action, bool> waitPlayer(Action (*f)(const World&), const World& worl
     else return {action, false};
 }
 
+// validate action - return a boolean which shows whether we need to stop the game
+// and string message in case of end of the game
 std::tuple<bool, string> validateActions(const World& world, const Action& action0, const Action& action1)
 {
-    auto player0Dest = *action0.to;
-    auto player1Dest = *action1.to;
+    auto player0Dest = *action0.to; // destination of player 0
+    auto player1Dest = *action1.to; // destination of player 1
 
     if (*world.board[player0Dest.getRow()][player0Dest.getColumn()] == Symbols::M
-        || action0.to == action0.from
-        || player0Dest.getRow() < 0 || player0Dest.getRow() >= gridSideSize
-        || player0Dest.getColumn() < 0 || player0Dest.getColumn() >= gridSideSize)
+            || action0.to == action0.from
+            || player0Dest.getRow() < 0 || player0Dest.getRow() >= gridSideSize
+            || player0Dest.getColumn() < 0 || player0Dest.getColumn() >= gridSideSize) // if the player 0 made an illegal move
     {
         return { true, "Player 0 made an illegal move. Player 1 won the game!"};
     }
     else if (*world.board[player1Dest.getRow()][player1Dest.getColumn()] == Symbols::M
              || action1.to == action1.from
              || player1Dest.getRow() < 0 || player1Dest.getRow() >= gridSideSize
-             || player1Dest.getColumn() < 0 || player1Dest.getColumn() >= gridSideSize)
+             || player1Dest.getColumn() < 0 || player1Dest.getColumn() >= gridSideSize) // if the player 1 made an illegal move
     {
         return { true, "Player 1 made an illegal move. Player 0 won the game!"};
     }
-    else if (*world.board[player0Dest.getRow()][player0Dest.getColumn()] == Symbols::F)
+    else if (*world.board[player0Dest.getRow()][player0Dest.getColumn()] == Symbols::F) // if the player 0 captured the flag
     {
         return { true, "Player 0 captured the flag! Hooray!" };
     }
-    else if (*world.board[player1Dest.getRow()][player1Dest.getColumn()] == Symbols::f)
+    else if (*world.board[player1Dest.getRow()][player1Dest.getColumn()] == Symbols::f) // if the player 1 captured the flag
     {
         return { true, "Player 1 captured the flag! Hooray!" };
     }
-    else
+    else // if nothing remarkable happened yet
     {
         return { false, "Nothing interesting yet" };
     }
 }
 
+// if two different symbols met in one cell
+// return a code which specifies the needed behaviour for game controller
 int interaction(const Symbols& p0, const Symbols& p1)
 {
     if (p0 == Symbols::s && p1 == Symbols::S
             || p0 == Symbols::r && p1 == Symbols::R
-            || p0 == Symbols::p && p1 == Symbols::P
-//            || p1 == Symbols::s && p0 == Symbols::S
-//               || p1 == Symbols::r && p0 == Symbols::R
-//               || p1 == Symbols::p && p0 == Symbols::P
-               )
+            || p0 == Symbols::p && p1 == Symbols::P // if two similar symbols met
+        )
     {
         return 0;
     }
     else if (p0 == Symbols::s && p1 == Symbols::P
             || p0 == Symbols::r && p1 == Symbols::S
-            || p0 == Symbols::p && p1 == Symbols::R)
+            || p0 == Symbols::p && p1 == Symbols::R) // if unit 0 kills unit 1
     {
         return 1;
     }
     else if (p0 == Symbols::p && p1 == Symbols::S
              || p0 == Symbols::s && p1 == Symbols::R
-             || p0 == Symbols::r && p1 == Symbols::P)
+             || p0 == Symbols::r && p1 == Symbols::P) // if unit 1 kills unit 0
     {
         return 2;
     }
@@ -361,65 +377,57 @@ int interaction(const Symbols& p0, const Symbols& p1)
     return -1;
 }
 
+
+// change the position of the unit on the board
+void moveUnitOnBoard(vector<vector<shared_ptr<Symbols>>>& board, Position& posFrom, Position& posTo)
+{
+    auto tmp = board[posFrom.getRow()][posFrom.getColumn()];
+    board[posFrom.getRow()][posFrom.getColumn()] = make_shared<Symbols>(Symbols::empty);
+    board[posTo.getRow()][posTo.getColumn()] = tmp;
+}
+
+// change the position of the unit in the set of units
+void changeCoordsInSet(vector<pair<int, int>>& set, Position& posFrom, Position& posTo)
+{
+    auto it = find (set.begin(), set.end(), make_pair( posFrom.getRow(), posFrom.getColumn() ));
+    it->first = posTo.getRow();
+    it->second = posTo.getColumn();
+}
+
+// logic for moving a unit
+void playerMove(World& world, const Action& action, vector<pair<int, int>>& set)
+{
+    moveUnitOnBoard(world.board, *action.from, *action.to);
+    changeCoordsInSet(set, *action.from, *action.to);
+}
+
 void handleInteraction(int code, World& world, Position& pos0, Position& pos0to, Position& pos1, Position& pos1to)
 {
+    // kill the unit
+    auto killing = [](vector<vector<shared_ptr<Symbols>>>& board, Position& pos, vector<pair<int, int>>& set)
+    {
+        board[pos.getRow()][pos.getColumn()] = make_shared<Symbols>(Symbols::empty); // just empty the killed symbol's cell
+        auto it = find (set.begin(), set.end(), make_pair( pos.getRow(), pos.getColumn() ));
+        set.erase(it);
+    };
+
     switch (code) {
         case 0: // if two similar symbols met
         {
-            // do nothing
+            // the move is discarded
             break;
         }
         case 1: // when player 0 kills player 1
         {
-            cout << "killed: " << pos1.getRow() << " " << pos1.getColumn() << endl;
-
-            world.board[pos1.getRow()][pos1.getColumn()] = make_shared<Symbols>(Symbols::empty); // just empty the killed symbol's cell
-            auto it = find (world.set1.begin(), world.set1.end(), make_pair( pos1.getRow(), pos1.getColumn() ));
-            if (it == world.set1.end()) {
-                cout << "first not found at: " << pos0.getRow() << " " << pos0.getColumn() << endl;
-                exit(0);
-                break;
-            }
-            world.set1.erase(it);
-
-            auto tmp = world.board[pos0.getRow()][pos0.getColumn()];
-            world.board[pos0.getRow()][pos0.getColumn()] = make_shared<Symbols>(Symbols::empty);
-            world.board[pos0to.getRow()][pos0to.getColumn()] = tmp;
-            it = find (world.set0.begin(), world.set0.end(), make_pair( pos0.getRow(), pos0.getColumn() ));
-            if (it == world.set0.end()) {
-                cout << "other zero not found" << endl;
-                exit(0);
-                break;
-            }
-            it->first = pos0to.getRow();
-            it->second = pos0to.getColumn();
+            killing(world.board, pos1, world.set1);
+            playerMove(world, Action(pos0, pos0to), world.set0);
 
             break;
         }
         case 2: // when player 1 kills player 0
         {
-            cout << "killed: " << pos0.getRow() << " " << pos0.getColumn() << endl;
-            world.board[pos0.getRow()][pos0.getColumn()] = make_shared<Symbols>(Symbols::empty); // just empty the killed symbol's cell
-            auto it = find (world.set0.begin(), world.set0.end(), make_pair( pos0.getRow(), pos0.getColumn() ));
-            if (it == world.set0.end()) {
-                cout << "second not found at: " << pos0.getRow() << pos0.getColumn() << endl;
-                exit(0);
-                break;
-            }
-            world.set0.erase(it);
-            cout << "erased: " << it->first << " " << it->second << endl;
-
-            auto tmp = world.board[pos1.getRow()][pos1.getColumn()];
-            world.board[pos1.getRow()][pos1.getColumn()] = make_shared<Symbols>(Symbols::empty);
-            world.board[pos1to.getRow()][pos1to.getColumn()] = tmp;
-            it = find (world.set1.begin(), world.set1.end(), make_pair( pos1.getRow(), pos1.getColumn() ));
-            if (it == world.set1.end()) {
-                cout << "other second not found" << endl;
-                exit(0);
-                break;
-            }
-            it->first = pos1to.getRow();
-            it->second = pos1to.getColumn();
+            killing(world.board, pos0, world.set0);
+            playerMove(world, Action(pos1, pos1to), world.set1);
 
             break;
         }
@@ -432,32 +440,20 @@ void handleInteraction(int code, World& world, Position& pos0, Position& pos0to,
     }
 }
 
+// take actions and move units, update the state of the world
 void updateWorld(World& world, Action& action0, Action& action1)
 {
-    auto playerMove = [](World& world, Action& action, vector<pair<int, int>>& set)
-    {
-        world.board[action.to->getRow()][action.to->getColumn()] = move(world.board[action.from->getRow()][action.from->getColumn()]);
-        world.board[action.from->getRow()][action.from->getColumn()] = make_shared<Symbols>(Symbols::empty);
-        auto it = find (set.begin(), set.end(), make_pair( action.from->getRow(), action.from->getColumn() ));
-        if (it == set.end())
-        {
-            cout << "move 0 not found" << endl;
-            exit(0);
-        }
-        it->first = action.to->getRow();
-        it->second = action.to->getColumn();
-    };
 
-    if (*action0.to == *action1.from && *action0.from == *action1.to)
+    if (*action0.to == *action1.from && *action0.from == *action1.to) // in case the unit just swap places
     {
         swap(world.board[action0.to->getRow()][action0.to->getColumn()], world.board[action1.to->getRow()][action1.to->getColumn()]);
         auto it0 = find (world.set0.begin(), world.set0.end(), make_pair( action0.from->getRow(), action0.from->getColumn() ));
         auto it1 = find (world.set1.begin(), world.set1.end(), make_pair( action1.from->getRow(), action1.from->getColumn() ));
         swap(*it0, *it1);
 
-        return; // if they just swap - do nothing
+        return;
     }
-    else if (*action0.to == *action1.from)
+    else if (*action0.to == *action1.from) // if unit 0 goes to the initial place of unit 1
     {
         int code = interaction(
                 *world.board[action1.to->getRow()][action1.to->getColumn()],
@@ -477,7 +473,7 @@ void updateWorld(World& world, Action& action0, Action& action1)
         else
             handleInteraction(code, world, *action0.from, *action0.to, *action0.to, *action0.to);
     }
-    else if (*action1.to == *action0.from)
+    else if (*action1.to == *action0.from) // if unit 1 goes to the initial place of unit 0
     {
         int code = interaction(
                 *world.board[action0.from->getRow()][action0.from->getColumn()],
@@ -497,24 +493,23 @@ void updateWorld(World& world, Action& action0, Action& action1)
         else
             handleInteraction(code, world, *action1.to, *action1.to, *action1.from, *action1.to);
     }
-    else if (*action0.to == *action1.to)
+    else if (*action0.to == *action1.to) // if units 0 and 1 move to the same place
     {
         int code = interaction(
                 *world.board[action0.from->getRow()][action0.from->getColumn()],
                 *world.board[action1.from->getRow()][action1.from->getColumn()]
         );
-        cout << "case 3" << endl; // TODO check it if problems
+
         handleInteraction(code, world, *action0.from, *action0.to, *action1.from, *action1.to);
     }
-    else
+    else // if moves of unit 0 and unit 1 are independent
     {
         {
             int code = interaction(
                     *world.board[action0.from->getRow()][action0.from->getColumn()],
                     *world.board[action0.to->getRow()][action0.to->getColumn()]
             );
-            cout << "case 1" << endl;
-            cout << action0.from->getRow() << " " << action0.from->getColumn() << " to " << action0.to->getRow() << " " << action0.to->getColumn() << endl;
+
             if (code == -1)
                 playerMove(world, action0, world.set0);
             else
@@ -526,9 +521,7 @@ void updateWorld(World& world, Action& action0, Action& action1)
                     *world.board[action1.to->getRow()][action1.to->getColumn()],
                     *world.board[action1.from->getRow()][action1.from->getColumn()]
             );
-            cout << action1.from->getRow() << " " << action1.from->getColumn() << endl;
-            cout << action1.to->getRow() << " " << action1.to->getColumn() << endl;
-            cout << "case 2" << endl;
+
             if (code == -1)
                 playerMove(world, action1, world.set1);
             else
@@ -537,6 +530,7 @@ void updateWorld(World& world, Action& action0, Action& action1)
     }
 }
 
+// the main method of the program
 int main() {
     srand ( time(NULL) );
     while (true)
@@ -545,8 +539,7 @@ int main() {
         world.init();
         world.show();
         bool endGame = false;
-        while (!endGame)
-        {
+        while (!endGame) {
             auto[action0, timeout0] = waitPlayer(actionPlayerZero, world);
             auto[action1, timeout1] = waitPlayer(actionPlayerOne, world);
 
@@ -563,12 +556,6 @@ int main() {
 
                 updateWorld(world, action0, action1);
                 world.show();
-                for (const auto& tmp : world.set0)
-                    cout << tmp.first << " " << tmp.second << "|";
-                cout << endl;
-                for (const auto& tmp : world.set1)
-                    cout << tmp.first << " " << tmp.second << "|";
-                cout << endl;
 
                 if (endGame)
                 {
@@ -577,8 +564,5 @@ int main() {
             }
         }
     }
-
-
-
     return 0;
 }
