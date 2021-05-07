@@ -7,7 +7,6 @@
 #include <algorithm>
 #include <cstdlib>
 #include <ctime>
-#include <unordered_map>
 #include <fstream>
 
 using namespace std;
@@ -69,15 +68,23 @@ class World
 public:
     // ctor for creating a world
     World()
-        :
-        board(gridSideSize, vector<shared_ptr<Symbols>>(gridSideSize, make_shared<Symbols>(Symbols::empty))) // initialize 15x15 grid with empty cells
-    {}
+    {
+        for (int i = 0; i < gridSideSize; ++i)
+        {
+            vector<unique_ptr<Symbols>> tmp;
+            board.push_back(move(tmp));
+            for (int j = 0; j < gridSideSize; ++j)
+            {
+                board[i].push_back(make_unique<Symbols>(Symbols::empty));
+            }
+        }
+    }
 
     void init()
     {
         // place flags
-        board[0][0] = make_shared<Symbols>(Symbols::f);
-        board[gridSideSize - 1][gridSideSize - 1] = make_shared<Symbols>(Symbols::F);
+        board[0][0] = make_unique<Symbols>(Symbols::f);
+        board[gridSideSize - 1][gridSideSize - 1] = make_unique<Symbols>(Symbols::F);
 
         // define the coordinates of the 0 player's units
         for (int i = 0; i < 6; ++i)
@@ -100,30 +107,30 @@ public:
         // place set 0
         for (int i = 1; i < 6; ++i)
         {
-            board[0][i] = make_shared<Symbols>(Symbols::r);
-            board[1][i] = make_shared<Symbols>(Symbols::p);;
-            board[2][i] = make_shared<Symbols>(Symbols::s);
-            board[3][i] = make_shared<Symbols>(Symbols::r);
-            board[4][i] = make_shared<Symbols>(Symbols::p);
-            board[5][i] = make_shared<Symbols>(Symbols::s);
+            board[0][i] = make_unique<Symbols>(Symbols::r);
+            board[1][i] = make_unique<Symbols>(Symbols::p);;
+            board[2][i] = make_unique<Symbols>(Symbols::s);
+            board[3][i] = make_unique<Symbols>(Symbols::r);
+            board[4][i] = make_unique<Symbols>(Symbols::p);
+            board[5][i] = make_unique<Symbols>(Symbols::s);
         }
 
         // place set 1
         for (int i = 9; i < 14; ++i)
         {
-            board[9][i] = make_shared<Symbols>(Symbols::S);
-            board[10][i] = make_shared<Symbols>(Symbols::P);
-            board[11][i] = make_shared<Symbols>(Symbols::R);
-            board[12][i] = make_shared<Symbols>(Symbols::S);
-            board[13][i] = make_shared<Symbols>(Symbols::P);
-            board[14][i] = make_shared<Symbols>(Symbols::R);
+            board[9][i] = make_unique<Symbols>(Symbols::S);
+            board[10][i] = make_unique<Symbols>(Symbols::P);
+            board[11][i] = make_unique<Symbols>(Symbols::R);
+            board[12][i] = make_unique<Symbols>(Symbols::S);
+            board[13][i] = make_unique<Symbols>(Symbols::P);
+            board[14][i] = make_unique<Symbols>(Symbols::R);
         }
 
         // place mountains
-        shared_ptr<Symbols> m;
+        unique_ptr<Symbols> m;
         for (const auto& tmp : mountainCoordinates)
         {
-            board[tmp.first][tmp.second] = make_shared<Symbols>(Symbols::M);
+            board[tmp.first][tmp.second] = make_unique<Symbols>(Symbols::M);
         }
     }
 
@@ -131,7 +138,8 @@ public:
 
 public:
     // a grid representing a board
-    vector<vector<shared_ptr<Symbols>>> board;
+    // ITEM 3.b: contains unique pointers to Symbols, because
+    vector<vector<unique_ptr<Symbols>>> board;
     // coordinates of mountains
     inline static vector<pair<int, int>> mountainCoordinates = {
             {10, 2},
@@ -168,7 +176,7 @@ public:
 std::ostream& operator<<(std::ostream& out, const World& world)
 {
     // choose an appropriate char for a unit
-    auto showSymbol = [&out](const shared_ptr<Symbols>& symbolPtr)
+    auto showSymbol = [&out](const unique_ptr<Symbols>& symbolPtr)
     {
         switch (*symbolPtr)
         {
@@ -205,14 +213,14 @@ public:
     // ctor for creating an action
     Action(Position& positionFrom, Position& positionTo)
     {
-        from = make_shared<Position>(positionFrom);
-        to = make_shared<Position>(positionTo);
+        from = make_unique<Position>(positionFrom);
+        to = make_unique<Position>(positionTo);
     }
 
     Action() = default;
 
-    shared_ptr<Position> from; // current row, column of the unit to be moved
-    shared_ptr<Position> to; // position to where the unit must be moved
+    unique_ptr<Position> from; // current row, column of the unit to be moved
+    unique_ptr<Position> to; // position to where the unit must be moved
 };
 
 // return a random unit in a set
@@ -240,8 +248,8 @@ Action actionPlayerZero(const World& world)
                     && *world.board[row + 1][column] != Symbols::s
                     && *world.board[row + 1][column] != Symbols::f)
         {
-            action.from = make_shared<Position>(Position(row, column)); // old coordinates
-            action.to = make_shared<Position>(Position(row + 1, column)); // increase row
+            action.from = make_unique<Position>(Position(row, column)); // old coordinates
+            action.to = make_unique<Position>(Position(row + 1, column)); // increase row
 
             successfulMove = true;
         }
@@ -252,8 +260,8 @@ Action actionPlayerZero(const World& world)
                     && *world.board[row][column + 1] != Symbols::s
                     && *world.board[row][column + 1] != Symbols::f)
         {
-            action.from = make_shared<Position>(Position(row, column)); // old coordinates
-            action.to = make_shared<Position>(Position(row, column + 1)); // increase column
+            action.from = make_unique<Position>(Position(row, column)); // old coordinates
+            action.to = make_unique<Position>(Position(row, column + 1)); // increase column
 
             successfulMove = true;
         }
@@ -295,8 +303,8 @@ Action actionPlayerOne(const World& world) {
                 && *world.board[destRow][destColumn] != Symbols::P
                 && *world.board[destRow][destColumn] != Symbols::F)
         {
-            action.from = make_shared<Position>(Position(row, column)); // old coordinates
-            action.to = make_shared<Position>(Position(destRow, destColumn)); // new coordinates
+            action.from = make_unique<Position>(Position(row, column)); // old coordinates
+            action.to = make_unique<Position>(Position(destRow, destColumn)); // new coordinates
 
             successfulMove = true;
         }
@@ -320,8 +328,8 @@ std::tuple<Action, bool> waitPlayer(Action (*f)(const World&), const World& worl
     std::chrono::duration<double, std::milli> elapsed = end - start;
 
     if (elapsed.count() > TIMEOUT) // if time > 0.4 s
-        return {action, true}; // player failed to answer in less than 400 ms
-    else return {action, false};
+        return { move(action), true }; // player failed to answer in less than 400 ms
+    else return { move(action), false };
 }
 
 // validate action - return a boolean which shows whether we need to stop the game
@@ -388,11 +396,11 @@ int interaction(const Symbols& p0, const Symbols& p1)
 
 
 // change the position of the unit on the board
-void moveUnitOnBoard(vector<vector<shared_ptr<Symbols>>>& board, Position& posFrom, Position& posTo)
+void moveUnitOnBoard(vector<vector<unique_ptr<Symbols>>>& board, Position& posFrom, Position& posTo)
 {
-    auto tmp = board[posFrom.getRow()][posFrom.getColumn()];
-    board[posFrom.getRow()][posFrom.getColumn()] = make_shared<Symbols>(Symbols::empty);
-    board[posTo.getRow()][posTo.getColumn()] = tmp;
+    auto tmp = move(board[posFrom.getRow()][posFrom.getColumn()]);
+    board[posFrom.getRow()][posFrom.getColumn()] = make_unique<Symbols>(Symbols::empty);
+    board[posTo.getRow()][posTo.getColumn()] = move(tmp);
 }
 
 // change the position of the unit in the set of units
@@ -413,9 +421,9 @@ void playerMove(World& world, const Action& action, vector<pair<int, int>>& set)
 void handleInteraction(int code, World& world, Position& pos0, Position& pos0to, Position& pos1, Position& pos1to)
 {
     // kill the unit
-    auto killing = [](vector<vector<shared_ptr<Symbols>>>& board, Position& pos, vector<pair<int, int>>& set)
+    auto killing = [](vector<vector<unique_ptr<Symbols>>>& board, Position& pos, vector<pair<int, int>>& set)
     {
-        board[pos.getRow()][pos.getColumn()] = make_shared<Symbols>(Symbols::empty); // just empty the killed symbol's cell
+        board[pos.getRow()][pos.getColumn()] = make_unique<Symbols>(Symbols::empty); // just empty the killed symbol's cell
         auto it = find (set.begin(), set.end(), make_pair( pos.getRow(), pos.getColumn() ));
         set.erase(it);
     };
@@ -550,14 +558,14 @@ void saveProgress(const World& world)
         file << world;
 
         // save set 0
-        file << "Set0" << endl;
+        file << "Set 0" << endl;
         for (int i = 0; i < world.set0.size(); ++i)
         {
             file << world.set0[i].first << " " << world.set0[i].second << endl;
         }
 
         // save set 1
-        file << "Set1" << endl;
+        file << "Set 1" << endl;
         for (int i = 0; i < world.set1.size(); ++i)
         {
             file << world.set1[i].first << " " << world.set1[i].second << endl;
@@ -577,16 +585,16 @@ World startSavedGame()
     {
         switch (symbol)
         {
-            case 's' : { return make_shared<Symbols>(Symbols::s); }
-            case 'S' : { return make_shared<Symbols>(Symbols::S); }
-            case 'p' : { return make_shared<Symbols>(Symbols::p); }
-            case 'P' : { return make_shared<Symbols>(Symbols::P); }
-            case 'r' : { return make_shared<Symbols>(Symbols::r); }
-            case 'R' : { return make_shared<Symbols>(Symbols::R); }
-            case 'M' : { return make_shared<Symbols>(Symbols::M); }
-            case 'f' : { return make_shared<Symbols>(Symbols::f); }
-            case 'F' : { return make_shared<Symbols>(Symbols::F); }
-            case '_' : { return make_shared<Symbols>(Symbols::empty); }
+            case 's' : { return make_unique<Symbols>(Symbols::s); }
+            case 'S' : { return make_unique<Symbols>(Symbols::S); }
+            case 'p' : { return make_unique<Symbols>(Symbols::p); }
+            case 'P' : { return make_unique<Symbols>(Symbols::P); }
+            case 'r' : { return make_unique<Symbols>(Symbols::r); }
+            case 'R' : { return make_unique<Symbols>(Symbols::R); }
+            case 'M' : { return make_unique<Symbols>(Symbols::M); }
+            case 'f' : { return make_unique<Symbols>(Symbols::f); }
+            case 'F' : { return make_unique<Symbols>(Symbols::F); }
+            case '_' : { return make_unique<Symbols>(Symbols::empty); }
         }
     };
 
@@ -602,22 +610,23 @@ World startSavedGame()
         int count = 0;
 
         // fill the board
-        while (file >> input, count != 225)
+        while (count != 225)
         {
+            file >> input;
             world.board[count / 15][count % 15] = chooseSymbol(input);
             count++;
         }
 
         // fill Set 0
         string i, j;
-        file >> i;
-        while (file >> i >> j, i != "Set1" && j != "Set1")
+        file >> i >> j;
+        while (file >> i >> j, i != "Set")
         {
             world.set0.emplace_back( stoi(i), stoi(j) );
         }
 
         // fill Set 1
-        while (file >> i >> j, i != "End" && j != "End")
+        while (file >> i >> j, i != "End")
         {
             world.set1.emplace_back( stoi(i), stoi(j) );
         }
