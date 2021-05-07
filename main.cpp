@@ -8,6 +8,7 @@
 #include <cstdlib>
 #include <ctime>
 #include <unordered_map>
+#include <fstream>
 
 using namespace std;
 using namespace std::chrono_literals;
@@ -70,7 +71,14 @@ public:
     World()
         :
         board(gridSideSize, vector<shared_ptr<Symbols>>(gridSideSize, make_shared<Symbols>(Symbols::empty))) // initialize 15x15 grid with empty cells
+    {}
+
+    void init()
     {
+        // place flags
+        board[0][0] = make_shared<Symbols>(Symbols::f);
+        board[gridSideSize - 1][gridSideSize - 1] = make_shared<Symbols>(Symbols::F);
+
         // define the coordinates of the 0 player's units
         for (int i = 0; i < 6; ++i)
         {
@@ -88,13 +96,6 @@ public:
                 set1.emplace_back(i, j);
             }
         }
-    }
-
-    void init()
-    {
-        // place flags
-        board[0][0] = make_shared<Symbols>(Symbols::f);
-        board[gridSideSize - 1][gridSideSize - 1] = make_shared<Symbols>(Symbols::F);
 
         // place set 0
         for (int i = 1; i < 6; ++i)
@@ -126,37 +127,8 @@ public:
         }
     }
 
-    void show() const
-    {
-        // choose an appropriate char for a unit
-        auto showSymbol = [](const shared_ptr<Symbols>& symbolPtr)
-        {
-            switch (*symbolPtr)
-            {
-                case Symbols::s : { cout << 's'; break; }
-                case Symbols::S : { cout << 'S'; break; }
-                case Symbols::p : { cout << 'p'; break; }
-                case Symbols::P : { cout << 'P'; break; }
-                case Symbols::r : { cout << 'r'; break; }
-                case Symbols::R : { cout << 'R'; break; }
-                case Symbols::M : { cout << 'M'; break; }
-                case Symbols::f : { cout << 'f'; break; }
-                case Symbols::F : { cout << 'F'; break; }
-                case Symbols::empty : { cout << ' '; break; }
-            }
-        };
+    friend std::ostream& operator<<(std::ostream& out, const World& world);
 
-        // print all cells on the board
-        for (int i = 0; i < gridSideSize; ++i)
-        {
-            for (int j = 0; j < gridSideSize; ++j)
-            {
-                showSymbol(board[i][j]);
-                cout << ' ';
-            }
-            cout << endl;
-        }
-    }
 public:
     // a grid representing a board
     vector<vector<shared_ptr<Symbols>>> board;
@@ -184,11 +156,48 @@ public:
             {5,  12}
     };
 
+    // I don't want to use templates here because my program would not
+    // benefit from their use.
+
     // units of player 0
     vector<pair<int, int>> set0;
     // units of player 1
     vector<pair<int, int>> set1;
 };
+
+std::ostream& operator<<(std::ostream& out, const World& world)
+{
+    // choose an appropriate char for a unit
+    auto showSymbol = [&out](const shared_ptr<Symbols>& symbolPtr)
+    {
+        switch (*symbolPtr)
+        {
+            case Symbols::s : { out << 's'; break; }
+            case Symbols::S : { out << 'S'; break; }
+            case Symbols::p : { out << 'p'; break; }
+            case Symbols::P : { out << 'P'; break; }
+            case Symbols::r : { out << 'r'; break; }
+            case Symbols::R : { out << 'R'; break; }
+            case Symbols::M : { out << 'M'; break; }
+            case Symbols::f : { out << 'f'; break; }
+            case Symbols::F : { out << 'F'; break; }
+            case Symbols::empty : { out << '_'; break; }
+        }
+    };
+
+    // print all cells on the board
+    for (int i = 0; i < gridSideSize; ++i)
+    {
+        for (int j = 0; j < gridSideSize; ++j)
+        {
+            showSymbol(world.board[i][j]);
+            out << ' ';
+        }
+        out << endl;
+    }
+
+    return out;
+}
 
 class Action
 {
@@ -530,37 +539,143 @@ void updateWorld(World& world, Action& action0, Action& action1)
     }
 }
 
+// save the state of the world to the file
+void saveProgress(const World& world)
+{
+    ofstream file("savefile.txt");
+    if (file.is_open())
+    {
+        // save board
+        file << "Board" << endl;
+        file << world;
+
+        // save set 0
+        file << "Set0" << endl;
+        for (int i = 0; i < world.set0.size(); ++i)
+        {
+            file << world.set0[i].first << " " << world.set0[i].second << endl;
+        }
+
+        // save set 1
+        file << "Set1" << endl;
+        for (int i = 0; i < world.set1.size(); ++i)
+        {
+            file << world.set1[i].first << " " << world.set1[i].second << endl;
+        }
+        file << "End" << endl;
+
+        file.close();
+    }
+}
+
+
+// parse the save file. Create the world
+World startSavedGame()
+{
+    // choose an appropriate unit for a char
+    auto chooseSymbol = [](char& symbol)
+    {
+        switch (symbol)
+        {
+            case 's' : { return make_shared<Symbols>(Symbols::s); }
+            case 'S' : { return make_shared<Symbols>(Symbols::S); }
+            case 'p' : { return make_shared<Symbols>(Symbols::p); }
+            case 'P' : { return make_shared<Symbols>(Symbols::P); }
+            case 'r' : { return make_shared<Symbols>(Symbols::r); }
+            case 'R' : { return make_shared<Symbols>(Symbols::R); }
+            case 'M' : { return make_shared<Symbols>(Symbols::M); }
+            case 'f' : { return make_shared<Symbols>(Symbols::f); }
+            case 'F' : { return make_shared<Symbols>(Symbols::F); }
+            case '_' : { return make_shared<Symbols>(Symbols::empty); }
+        }
+    };
+
+    World world;
+    ifstream file("savefile.txt");
+
+    if (file.is_open())
+    {
+        string fInput;
+        if (file >> fInput, fInput != "Board") cout << "problem" << endl;
+
+        char input = 0;
+        int count = 0;
+
+        // fill the board
+        while (file >> input, count != 225)
+        {
+            world.board[count / 15][count % 15] = chooseSymbol(input);
+            count++;
+        }
+
+        // fill Set 0
+        string i, j;
+        file >> i;
+        while (file >> i >> j, i != "Set1" && j != "Set1")
+        {
+            world.set0.emplace_back( stoi(i), stoi(j) );
+        }
+
+        // fill Set 1
+        while (file >> i >> j, i != "End" && j != "End")
+        {
+            world.set1.emplace_back( stoi(i), stoi(j) );
+        }
+    }
+
+    return world;
+}
+
+// choose whether to start new game or to continue the saved one
+void gameStart(World& world)
+{
+    string message;
+    cout << "do you want to load the save game? Y/n" << endl;
+    cin >> message;
+    if (message == "Y")
+    {
+        world = startSavedGame();
+    }
+    else
+    {
+        world.init();
+    }
+}
+
 // the main method of the program
 int main() {
     srand ( time(NULL) );
-    while (true)
-    {
-        World world;
-        world.init();
-        world.show();
-        bool endGame = false;
-        while (!endGame) {
-            auto[action0, timeout0] = waitPlayer(actionPlayerZero, world);
-            auto[action1, timeout1] = waitPlayer(actionPlayerOne, world);
 
-            if (timeout0 || timeout1)
+    World world;
+    gameStart(world);
+    cout << world;
+    int count = 0;
+
+    bool endGame = false;
+    while (!endGame) {
+        auto[action0, timeout0] = waitPlayer(actionPlayerZero, world);
+        auto[action1, timeout1] = waitPlayer(actionPlayerOne, world);
+
+        if (timeout0 || timeout1)
+        {
+            endGame = true;
+            if (timeout0) cout << "Player 1 won. Player 0, you are a slowpoke!" << endl;
+            else cout << "Player 0 won. Player 1, you are a slowpoke!" << endl;
+        }
+        else
+        {
+            string message;
+            tie(endGame, message) = validateActions(world, action0, action1);
+
+            updateWorld(world, action0, action1);
+            cout << world;
+
+            // save the game after 50 iterations
+            if (count++ == 50) saveProgress(world);
+            if (endGame)
             {
-                endGame = true;
-                if (timeout0) cout << "Player 1 won. Player 0, you are a slowpoke!" << endl;
-                else cout << "Player 0 won. Player 1, you are a slowpoke!" << endl;
-            }
-            else
-            {
-                string message;
-                tie(endGame, message) = validateActions(world, action0, action1);
-
-                updateWorld(world, action0, action1);
-                world.show();
-
-                if (endGame)
-                {
-                    cout << message << endl;
-                }
+                cout << message << endl;
+                break;
             }
         }
     }
