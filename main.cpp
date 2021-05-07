@@ -69,6 +69,7 @@ public:
     // ctor for creating a world
     World()
     {
+        // ITEM 2: 15x15 maze
         for (int i = 0; i < gridSideSize; ++i)
         {
             vector<unique_ptr<Symbols>> tmp;
@@ -80,6 +81,7 @@ public:
         }
     }
 
+    // ITEM 2.a: initial setup
     void init()
     {
         // place flags
@@ -139,6 +141,8 @@ public:
 public:
     // a grid representing a board
     // ITEM 3.b: contains unique pointers to Symbols, because
+    // I want to manage all units only from inside the board.
+    // The created class is an enum class Symbols
     vector<vector<unique_ptr<Symbols>>> board;
     // coordinates of mountains
     inline static vector<pair<int, int>> mountainCoordinates = {
@@ -167,6 +171,7 @@ public:
     // I don't want to use templates here because my program would not
     // benefit from their use.
 
+    // ITEM 1.a: set of units of player 0 and player 1
     // units of player 0
     vector<pair<int, int>> set0;
     // units of player 1
@@ -229,6 +234,7 @@ auto chooseSymbolRandomly(const vector<pair<int, int>>& set)
     return set[rand() % set.size()];
 }
 
+// ITEM 3.c: just moves towards the enemy's flag
 // chooses an action for the player 0
 Action actionPlayerZero(const World& world)
 {
@@ -240,6 +246,7 @@ Action actionPlayerZero(const World& world)
         // randomly choose some symbol from the set && extract its coordinates
         auto[row, column] = chooseSymbolRandomly(world.set0);
 
+        // ITEM 4.b: move to an orthogonal position
         if (row < column // if needs to change row and if the move will be legal
                 && row + 1 != gridSideSize
                     && *world.board[row + 1][column] != Symbols::M
@@ -253,6 +260,7 @@ Action actionPlayerZero(const World& world)
 
             successfulMove = true;
         }
+            // ITEM 4.b: move to an orthogonal position
         else if (column + 1 != gridSideSize // otherwise, try to change the column if possible
                     && *world.board[row][column + 1] != Symbols::M
                     && *world.board[row][column + 1] != Symbols::r
@@ -275,6 +283,7 @@ Action actionPlayerZero(const World& world)
     return action;
 }
 
+// ITEM 3.c: moves randomly
 // chooses an action for the player 1
 Action actionPlayerOne(const World& world) {
     bool successfulMove = false;
@@ -286,6 +295,7 @@ Action actionPlayerOne(const World& world) {
         auto[row, column] = chooseSymbolRandomly(world.set1);
         // randomly choose direction of the move
         int randChoice = rand() % 4;
+        // ITEM 4.b: move to an orthogonal position
         vector<pair<int, int>> randMoves{
                 {row - 1, column},
                 {row + 1, column},
@@ -339,6 +349,7 @@ std::tuple<bool, string> validateActions(const World& world, const Action& actio
     auto player0Dest = *action0.to; // destination of player 0
     auto player1Dest = *action1.to; // destination of player 1
 
+    // ITEM 4.c: first, process the actions and check whether there was an illegal move
     if (*world.board[player0Dest.getRow()][player0Dest.getColumn()] == Symbols::M
             || action0.to == action0.from
             || player0Dest.getRow() < 0 || player0Dest.getRow() >= gridSideSize
@@ -353,6 +364,7 @@ std::tuple<bool, string> validateActions(const World& world, const Action& actio
     {
         return { true, "Player 1 made an illegal move. Player 0 won the game!"};
     }
+    // ITEM 4.d: check whether the flag was captured
     else if (*world.board[player0Dest.getRow()][player0Dest.getColumn()] == Symbols::F) // if the player 0 captured the flag
     {
         return { true, "Player 0 captured the flag! Hooray!" };
@@ -420,7 +432,7 @@ void playerMove(World& world, const Action& action, vector<pair<int, int>>& set)
 
 void handleInteraction(int code, World& world, Position& pos0, Position& pos0to, Position& pos1, Position& pos1to)
 {
-    // kill the unit
+    // ITEM 4.g: a function with logic of killing a unit
     auto killing = [](vector<vector<unique_ptr<Symbols>>>& board, Position& pos, vector<pair<int, int>>& set)
     {
         board[pos.getRow()][pos.getColumn()] = make_unique<Symbols>(Symbols::empty); // just empty the killed symbol's cell
@@ -429,7 +441,7 @@ void handleInteraction(int code, World& world, Position& pos0, Position& pos0to,
     };
 
     switch (code) {
-        case 0: // if two similar symbols met
+        case 0: // ITEM 4.e: if two similar symbols met - do nothing
         {
             // the move is discarded
             break;
@@ -547,6 +559,9 @@ void updateWorld(World& world, Action& action0, Action& action1)
     }
 }
 
+// ITEM 3.d: all of three of the following methods implement the unique feature:
+// save the game to a file and start new game with saved process
+
 // save the state of the world to the file
 void saveProgress(const World& world)
 {
@@ -575,7 +590,6 @@ void saveProgress(const World& world)
         file.close();
     }
 }
-
 
 // parse the save file. Create the world
 World startSavedGame()
@@ -662,6 +676,8 @@ int main() {
 
     bool endGame = false;
     while (!endGame) {
+        // ITEM 3: once per second
+        this_thread::sleep_for(1000ms);
         auto[action0, timeout0] = waitPlayer(actionPlayerZero, world);
         auto[action1, timeout1] = waitPlayer(actionPlayerOne, world);
 
@@ -681,6 +697,7 @@ int main() {
 
             // save the game after 50 iterations
             if (count++ == 50) saveProgress(world);
+            // print a message if the game has ended
             if (endGame)
             {
                 cout << message << endl;
